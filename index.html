@@ -16,9 +16,7 @@
             overflow: hidden;
             border: none !important;
         }
-        #reader video {
-            object-fit: cover;
-        }
+        /* Dihapus object-fit: cover agar gambar tidak terdistorsi/melar yang menyebabkan gagal scan */
     </style>
 </head>
 <body class="bg-[#686969] text-gray-800 min-h-screen flex flex-col items-center justify-center p-4">
@@ -94,32 +92,26 @@
         }
 
         function onScanFailure(error) {
-            // Abaikan error saat proses scan berlangsung (karena akan terus menerus error sampai QR terlihat)
+            // Abaikan error saat proses scan berlangsung
         }
 
         // Fungsi untuk mengirim data ke App Script
         function sendDataToAppScript(data) {
-            // Menggunakan GET request untuk menghindari masalah CORS yang sering terjadi di Google Apps Script
-            // Data dikirim sebagai parameter URL (?data=...)
             const targetUrl = `${APPS_SCRIPT_URL}?data=${encodeURIComponent(data)}`;
 
             fetch(targetUrl, {
                 method: 'GET',
-                mode: 'no-cors' // Penting untuk melewati blokir CORS dari Google
+                mode: 'no-cors' 
             })
             .then(() => {
-                // 3. Tutup aplikasi/tab setelah berhasil
-                // Catatan: window.close() terkadang diblokir oleh browser HP jika tab tidak dibuka oleh script.
-                // Jika tidak tertutup otomatis, kita kembalikan ke halaman sebelumnya.
                 setTimeout(() => {
                     if (window.history.length > 1) {
-                        window.history.back(); // Kembali ke App Script jika dibuka di tab yang sama
+                        window.history.back(); 
                     } else {
-                        window.close(); // Mencoba menutup tab
-                        // Fallback pesan jika window.close() diblokir browser
+                        window.close(); 
                         scannedResultText.innerHTML = "Data terkirim! <br><span class='text-sm text-[#60C0D0]'>Silakan tutup halaman ini secara manual.</span>";
                     }
-                }, 1500); // Jeda 1.5 detik agar user bisa melihat pesan sukses
+                }, 1500);
             })
             .catch(error => {
                 console.error('Error:', error);
@@ -127,16 +119,23 @@
             });
         }
 
-        // Konfigurasi Scanner
+        // Konfigurasi Scanner yang diperbarui
         const config = { 
             fps: 10, 
-            qrbox: { width: 250, height: 250 },
-            aspectRatio: 1.0,
-            supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
+            // Membuat ukuran qrbox responsif menyesuaikan ukuran layar HP
+            qrbox: function(viewfinderWidth, viewfinderHeight) {
+                let minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
+                // Ukuran area scan adalah 70% dari ukuran layar terkecil
+                let qrboxSize = Math.floor(minEdgeSize * 0.7);
+                return {
+                    width: qrboxSize,
+                    height: qrboxSize
+                };
+            }
+            // aspectRatio dan supportedScanTypes dihapus agar library menyesuaikan secara native
         };
 
         // Inisialisasi Scanner
-        // Gunakan facingMode: "environment" untuk memaksa menggunakan kamera belakang
         html5QrcodeScanner = new Html5Qrcode("reader");
         html5QrcodeScanner.start(
             { facingMode: "environment" }, 
