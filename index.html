@@ -60,8 +60,9 @@
                 <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
             </div>
             <h2 class="text-xl font-bold text-[#00B9AD] mb-2">Berhasil Discan!</h2>
+            <!-- Elemen ini akan menampung hasil scan -->
             <p class="text-center text-[#686969] font-medium break-all mb-4" id="scanned-result"></p>
-            <p class="text-sm text-[#60C0D0] animate-pulse font-semibold">Mengirim data ke sistem... <br>Halaman ini akan ditutup otomatis.</p>
+            <p class="text-sm text-[#60C0D0] font-semibold">Data siap diproses oleh aplikasi.</p>
         </div>
 
         <!-- Tombol Batal/Tutup -->
@@ -72,12 +73,6 @@
     </div>
 
     <script>
-        // ====================================================================
-        // KONFIGURASI URL GOOGLE APPS SCRIPT ANDA DI SINI
-        // ====================================================================
-        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbybu8KXJNIHEzlXgpRIAsfw8j7EXS99_C-iBFSsqlTqHJHU28wtn_Ga6endh8b_K9t8/exec";
-        // ====================================================================
-
         let html5QrcodeScanner;
         const readerElement = document.getElementById('reader');
         const readerContainer = document.getElementById('reader-container');
@@ -99,44 +94,35 @@
 
             // Hentikan Scanner
             html5QrcodeScanner.stop().then(() => {
+                // Sembunyikan kamera, tampilkan hasil
                 readerContainer.classList.add('hidden');
                 successContainer.classList.remove('hidden');
                 statusText.classList.add('hidden');
-                closeBtn.classList.add('hidden');
                 
+                // Tampilkan teks ke layar
                 scannedResultText.innerText = "Data: " + decodedText;
-                sendDataToAppScript(decodedText);
+
+                // =======================================================================
+                // CARA APPS SCRIPT MENGAMBIL DATA SECARA MANDIRI DARI SINI:
+                // =======================================================================
+                
+                // METODE 1: Jika aplikasi ini dipanggil melalui iframe di App Script utama Anda,
+                // baris ini akan melempar data ke halaman utama/parent.
+                window.parent.postMessage({ type: "QR_RESULT", data: decodedText }, "*");
+
+                // METODE 2: Jika kode HTML ini ditempel/disatukan langsung di dalam file HTML Apps Script Anda,
+                // Anda cukup menghapus tanda komentar di bawah ini untuk mengirim ke gs:
+                // google.script.run.namaFungsiDiBackend(decodedText);
+                
+                // =======================================================================
+
             }).catch(error => {
                 console.error("Gagal menghentikan scanner.", error);
-                sendDataToAppScript(decodedText);
             });
         }
 
         function onScanFailure(error) {
             // Abaikan error saat tidak ada QR
-        }
-
-        function sendDataToAppScript(data) {
-            const targetUrl = `${APPS_SCRIPT_URL}?data=${encodeURIComponent(data)}`;
-
-            fetch(targetUrl, {
-                method: 'GET',
-                mode: 'no-cors' 
-            })
-            .then(() => {
-                setTimeout(() => {
-                    if (window.history.length > 1) {
-                        window.history.back(); 
-                    } else {
-                        window.close(); 
-                        scannedResultText.innerHTML = "Data terkirim! <br><span class='text-sm text-[#60C0D0]'>Silakan tutup halaman ini secara manual.</span>";
-                    }
-                }, 1500);
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert("Gagal mengirim data. Pastikan ada koneksi internet.");
-            });
         }
 
         // Inisialisasi Scanner
