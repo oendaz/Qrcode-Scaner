@@ -106,6 +106,16 @@
                 // CARA APPS SCRIPT MENGAMBIL DATA SECARA MANDIRI DARI SINI:
                 // =======================================================================
                 
+                // Setelah QR berhasil terbaca:
+                var hasilScan = decodedText; // Menggunakan hasil scan yang asli
+
+                if (window.opener) {
+                    // Mengirim data ke Tab aplikasi Stock Opname
+                    window.opener.postMessage(hasilScan, "*");
+                    // Menutup tab scanner secara otomatis
+                    window.close(); 
+                }
+
                 // METODE 1: Jika aplikasi ini dipanggil melalui iframe di App Script utama Anda,
                 // baris ini akan melempar data ke halaman utama/parent.
                 window.parent.postMessage({ type: "QR_RESULT", data: decodedText }, "*");
