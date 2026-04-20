@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>QR Scanner</title>
+    <!-- Tailwind CSS untuk styling agar responsif dan rapi di HP -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Library HTML5 QR Code -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <style>
+        /* Styling tambahan untuk menyesuaikan tampilan reader */
+        #reader {
+            width: 100%;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            border: none !important;
+        }
+        #reader video {
+            object-fit: cover;
+        }
+    </style>
+</head>
+<body class="bg-[#686969] text-gray-800 min-h-screen flex flex-col items-center justify-center p-4">
+
+    <!-- Container Utama -->
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 flex flex-col items-center border-t-8 border-[#00B9AD]">
+        
+        <!-- Area Logo -->
+        <!-- GANTI ATRIBUT 'src' DI BAWAH INI DENGAN LINK LOGO ANDA -->
+        <img id="app-logo" src="https://via.placeholder.com/200x60/00B9AD/FFFFFF?text=LOGO+ANDA" alt="Logo Aplikasi" class="h-16 object-contain mb-4">
+
+        <div class="text-center mb-6">
+            <h1 class="text-2xl font-bold text-[#00B9AD] mb-2">Scan QR Code</h1>
+            <p class="text-sm text-[#686969]" id="status-text">Arahkan kamera ke QR Code. Pastikan pencahayaan cukup.</p>
+        </div>
+
+        <!-- Area Kamera -->
+        <div id="reader-container" class="w-full bg-black rounded-lg overflow-hidden relative shadow-inner mb-6 border-4 border-[#60C0D0]">
+            <div id="reader"></div>
+        </div>
+
+        <!-- Area Pesan Sukses (Disembunyikan secara default) -->
+        <div id="success-container" class="hidden w-full flex flex-col items-center py-8">
+            <div class="w-16 h-16 bg-[#CDDC29] rounded-full flex items-center justify-center mb-4">
+                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+            </div>
+            <h2 class="text-xl font-bold text-[#00B9AD] mb-2">Berhasil Discan!</h2>
+            <p class="text-center text-[#686969] font-medium break-all mb-4" id="scanned-result"></p>
+            <p class="text-sm text-[#60C0D0] animate-pulse font-semibold">Mengirim data ke sistem... <br>Halaman ini akan ditutup otomatis.</p>
+        </div>
+
+        <!-- Tombol Batal/Tutup -->
+        <button id="close-btn" class="w-full py-3 bg-[#686969] hover:bg-[#00B9AD] text-white font-semibold rounded-lg transition-colors duration-300 mt-2">
+            Batal & Tutup
+        </button>
+
+    </div>
+
+    <script>
+        // ====================================================================
+        // KONFIGURASI URL GOOGLE APPS SCRIPT ANDA DI SINI
+        // ====================================================================
+        // Ganti URL di bawah dengan URL Web App hasil deploy Apps Script Anda
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwIRVPqfUIjxCNqold_ZUPBUFMi6i3y3ckzuk-70Hm8ReOVIjRavWUDMqHatuc1S-78/exec";
+        
+        // ====================================================================
+
+        let html5QrcodeScanner;
+        const readerElement = document.getElementById('reader');
+        const readerContainer = document.getElementById('reader-container');
+        const successContainer = document.getElementById('success-container');
+        const scannedResultText = document.getElementById('scanned-result');
+        const statusText = document.getElementById('status-text');
+        const closeBtn = document.getElementById('close-btn');
+
+        // Fungsi yang dipanggil ketika QR Code berhasil terbaca
+        function onScanSuccess(decodedText, decodedResult) {
+            // 1. Hentikan Scanner agar kamera mati
+            html5QrcodeScanner.clear().then(() => {
+                // Sembunyikan kamera, tampilkan pesan sukses
+                readerContainer.classList.add('hidden');
+                successContainer.classList.remove('hidden');
+                statusText.classList.add('hidden');
+                closeBtn.classList.add('hidden');
+                
+                scannedResultText.innerText = "Data: " + decodedText;
+
+                // 2. Kirim data ke Google Apps Script
+                sendDataToAppScript(decodedText);
+            }).catch(error => {
+                console.error("Gagal menghentikan scanner.", error);
+            });
+        }
+
+        function onScanFailure(error) {
+            // Abaikan error saat proses scan berlangsung (karena akan terus menerus error sampai QR terlihat)
+        }
+
+        // Fungsi untuk mengirim data ke App Script
+        function sendDataToAppScript(data) {
+            // Menggunakan GET request untuk menghindari masalah CORS yang sering terjadi di Google Apps Script
+            // Data dikirim sebagai parameter URL (?data=...)
+            const targetUrl = `${APPS_SCRIPT_URL}?data=${encodeURIComponent(data)}`;
+
+            fetch(targetUrl, {
+                method: 'GET',
+                mode: 'no-cors' // Penting untuk melewati blokir CORS dari Google
+            })
+            .then(() => {
+                // 3. Tutup aplikasi/tab setelah berhasil
+                // Catatan: window.close() terkadang diblokir oleh browser HP jika tab tidak dibuka oleh script.
+                // Jika tidak tertutup otomatis, kita kembalikan ke halaman sebelumnya.
+                setTimeout(() => {
+                    if (window.history.length > 1) {
+                        window.history.back(); // Kembali ke App Script jika dibuka di tab yang sama
+                    } else {
+                        window.close(); // Mencoba menutup tab
+                        // Fallback pesan jika window.close() diblokir browser
+                        scannedResultText.innerHTML = "Data terkirim! <br><span class='text-sm text-[#60C0D0]'>Silakan tutup halaman ini secara manual.</span>";
+                    }
+                }, 1500); // Jeda 1.5 detik agar user bisa melihat pesan sukses
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert("Gagal mengirim data. Pastikan ada koneksi internet.");
+            });
+        }
+
+        // Konfigurasi Scanner
+        const config = { 
+            fps: 10, 
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0,
+            supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
+        };
+
+        // Inisialisasi Scanner
+        // Gunakan facingMode: "environment" untuk memaksa menggunakan kamera belakang
+        html5QrcodeScanner = new Html5Qrcode("reader");
+        html5QrcodeScanner.start(
+            { facingMode: "environment" }, 
+            config, 
+            onScanSuccess, 
+            onScanFailure
+        ).catch(err => {
+            alert("Gagal mengakses kamera. Pastikan Anda memberikan izin akses kamera.");
+            console.error(err);
+        });
+
+        // Event listener untuk tombol tutup manual
+        closeBtn.addEventListener('click', () => {
+            if(html5QrcodeScanner) {
+                html5QrcodeScanner.clear();
+            }
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.close();
+            }
+        });
+    </script>
+</body>
+</html>
