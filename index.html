@@ -14,10 +14,10 @@
         /* Styling tambahan untuk menyesuaikan tampilan reader */
         #reader {
             width: 100%;
+            min-height: 250px; /* Memastikan ada ruang awal untuk kamera sebelum menyala */
             border-radius: 0.5rem;
             overflow: hidden;
             border: none !important;
-            /* Pastikan background hitam agar rapi sebelum kamera menyala */
             background-color: black; 
         }
         
@@ -25,6 +25,7 @@
         #reader video {
             width: 100% !important;
             height: auto !important;
+            object-fit: contain !important; /* Kunci agar kamera tidak melar/gepeng */
         }
         
         /* Menyembunyikan elemen bawaan library jika ada (opsional untuk kerapian) */
@@ -84,39 +85,35 @@
         const scannedResultText = document.getElementById('scanned-result');
         const statusText = document.getElementById('status-text');
         const closeBtn = document.getElementById('close-btn');
-        let isScanning = true; // Flag untuk mencegah scan berulang (double firing)
+        let isScanning = true;
 
         function onScanSuccess(decodedText, decodedResult) {
-            if (!isScanning) return; // Cegah eksekusi ganda jika sudah berhasil
+            if (!isScanning) return; 
             isScanning = false;
 
-            // Membunyikan suara 'beep' pendek (opsional, membantu feedback visual)
+            // Membunyikan suara 'beep' pendek
             try {
                 const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3');
                 audio.play().catch(e => console.log("Audio play diabaikan browser"));
             } catch(e) {}
 
-            // Hentikan Scanner agar kamera mati
+            // Hentikan Scanner
             html5QrcodeScanner.stop().then(() => {
-                // Sembunyikan kamera, tampilkan pesan sukses
                 readerContainer.classList.add('hidden');
                 successContainer.classList.remove('hidden');
                 statusText.classList.add('hidden');
                 closeBtn.classList.add('hidden');
                 
                 scannedResultText.innerText = "Data: " + decodedText;
-
-                // Kirim data ke Google Apps Script
                 sendDataToAppScript(decodedText);
             }).catch(error => {
                 console.error("Gagal menghentikan scanner.", error);
-                // Jika gagal dihentikan, tetap teruskan proses kirim data
                 sendDataToAppScript(decodedText);
             });
         }
 
         function onScanFailure(error) {
-            // Abaikan error (biasanya error karena tidak ada QR di frame saat ini)
+            // Abaikan error saat tidak ada QR
         }
 
         function sendDataToAppScript(data) {
@@ -142,52 +139,32 @@
             });
         }
 
-        // Inisialisasi Scanner dengan konfigurasi resolusi tinggi
+        // Inisialisasi Scanner
         html5QrcodeScanner = new Html5Qrcode("reader");
         
-        // Memaksa resolusi video lebih tinggi (HD) agar QR kecil / agak buram bisa terbaca
-        // Jika HP tidak support 1080p, library akan otomatis turun ke resolusi terbaik yang didukung
+        // Konfigurasi aman dengan kotak scan responsif
         const config = { 
             fps: 10, 
             qrbox: function(viewfinderWidth, viewfinderHeight) {
-                // Buat kotak scan sebesar 80% dari lebar/tinggi terkecil
+                // Kotak scan disesuaikan agar pas tanpa membuat layar error
                 let minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
                 let qrboxSize = Math.floor(minEdgeSize * 0.8);
                 return {
                     width: qrboxSize,
                     height: qrboxSize
                 };
-            },
-            // Optimasi library untuk lebih sering mencoba membaca
-            disableFlip: false 
+            }
         };
 
-        // Mulai kamera dengan request resolusi tinggi
+        // Mulai kamera dengan pengaturan bawaan (Paling aman untuk semua HP)
         html5QrcodeScanner.start(
-            { 
-                facingMode: "environment",
-                // Meminta resolusi tinggi
-                videoConstraints: {
-                    width: { ideal: 1920, min: 1280 },
-                    height: { ideal: 1080, min: 720 },
-                    focusMode: "continuous" // Meminta browser untuk terus auto-focus
-                }
-            }, 
+            { facingMode: "environment" }, 
             config, 
             onScanSuccess, 
             onScanFailure
         ).catch(err => {
-            // Fallback jika videoConstraints ditolak oleh browser lama/HP murah
-            console.warn("Gagal start dengan resolusi HD, mencoba pengaturan standar...", err);
-            
-            html5QrcodeScanner.start(
-                { facingMode: "environment" }, 
-                { fps: 10, qrbox: 250 }, 
-                onScanSuccess, 
-                onScanFailure
-            ).catch(errFallback => {
-                alert("Gagal mengakses kamera: " + errFallback);
-            });
+            console.error("Error membuka kamera:", err);
+            alert("Gagal mengakses kamera: Pastikan browser memiliki izin akses kamera.");
         });
 
         // Event listener untuk tombol tutup manual
